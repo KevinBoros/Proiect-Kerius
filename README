@@ -13,3 +13,7 @@ Acest proiect reprezintă un serviciu REST simplu, realizat în Node.js cu Expre
    npm run dev
 
 Testarea se face cu postman, metodele GET și PUT
+
+http://localhost:3000/api/students   -> pentru a accesa studenții
+
+http://localhost:3000/api/professors -> pentru a accesa profesorii

@@ -1,9 +1,12 @@
 const express = require('express');
 const sequelize = require('./config/sequelize'); // conexiunea
-const Student = require('./models/student');     // model
-const studentRouter = require('./routes/studentRouter'); 
 
-// DE INCLUS: profesor.js & profesorRouter.js
+const Student = require('./models/student');     // modele
+const Profesor = require('./models/profesor');
+
+//routere
+const studentRouter = require('./routes/studentRouter'); 
+const profesorRouter = require('./routes/profesorRouter');
 
 const app = express();
 const port = 3000;
@@ -13,7 +16,7 @@ app.use(express.json());  // pentru a putea primi JSON in body
 
 // Rutele
 app.use('/api', studentRouter);
-// app.use('/api', profesorRouter); //TODO
+app.use('/api', profesorRouter); 
 
 // Sincronizare DB
 sequelize.sync({ alter: true }) //asta va crea sau modifica tabelele pentru modelele definite
@@ -30,6 +33,15 @@ sequelize.sync({ alter: true }) //asta va crea sau modifica tabelele pentru mode
       console.log('Sample students created.');
     } else {
       console.log('Students already exist in the DB.');
+    }
+
+    const countProfs = await Profesor.count();
+    if (countProfs === 0) {
+      await Profesor.bulkCreate([
+        { firstName: 'Marian', lastName: 'Marin', email: 'marian@xyz.com', maxStudents: 4 },
+        { firstName: 'Camelia', lastName: 'Bratianu', email: 'camelia@xyz.com', maxStudents: 3 }
+      ]);
+      console.log('Sample professors created.');
     }
 
     // Pornim serverul
