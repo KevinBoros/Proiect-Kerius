@@ -1,3 +1,15 @@
-npm init
-npm install
-npm run dev
+# Proiect Disertație – Partea de back-end (REST API)
+
+Acest proiect reprezintă un serviciu REST simplu, realizat în Node.js cu Express și Sequelize, folosind o bază de date **SQLite**. Aplicația gestionează entități exemplificative (de ex. `Student`, `Profesor`) și oferă endpoint-uri pentru operații CRUD.
+
+## Cum rulez aplicația?
+
+1. **Clonează** acest repository local.
+2. Deschide un terminal în folderul `server/` (acolo unde există `package.json`).
+3. Rulează:
+
+   ```bash
+   npm install
+   npm run dev
+
+Testarea se face cu postman, metodele GET și PUT
