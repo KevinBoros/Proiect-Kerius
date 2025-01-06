@@ -1,19 +1,107 @@
-# Proiect Disertație – Partea de back-end (REST API)
+# Proiect Disertație – Back-end (Node+Express+Sequelize) & Front-end (React)
 
-Acest proiect reprezintă un serviciu REST simplu, realizat în Node.js cu Express și Sequelize, folosind o bază de date **SQLite**. Aplicația gestionează entități exemplificative (de ex. `Student`, `Profesor`) și oferă endpoint-uri pentru operații CRUD.
+Acest proiect gestionează entitățile: 
+- **Student** (cu câmpuri `firstName`, `lastName`, `email`)  
+- **Profesor** (cu `maxStudents`, etc.)  
+- **Cerere** (relația dintre student și profesor, cu `status`, fișiere upload etc.)
+
+Sistemul permite:
+1. **Crearea** de Studenți și Profesori (din codul de populare).
+2. **Trimite cereri** (un Student către un Profesor) – limitat de `maxStudents`.
+3. **Aprobare / Respingere** de către profesor, cu invalidare a celorlalte cereri student.
+4. **Upload** fișier la cereri aprobate.
+
+
+- În `server/`, rulăm partea de Node (Express) + SQLite (Sequelize).  
+- În `client/`, avem un proiect **React** (SPA), instalat cu Yarn.
+
+
+
 
 ## Cum rulez aplicația?
 
 1. **Clonează** acest repository local.
-2. Deschide un terminal în folderul `server/` (acolo unde există `package.json`).
+2. Deschide un terminal în folderul `server/`
 3. Rulează:
 
-   ```bash
    npm install
-   npm run dev
+   npm run dev   -> pe portul 3000
 
-Testarea se face cu postman, metodele GET și PUT
+4. Deschide un terminal în folderul `client/`
+5. Rulează:
+
+   yarn install
+   yarn start (alege să rulezi pe alt port față de 3000)
+
+   DACĂ yarn nu rulează pe sistem: npm install -g yarn
+   DACĂ există eroare de ”script execution powershell”:
+   intri în Powershell(ca administrator) și dai: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+   (-Scope CurrentUser e opțional)
+
+Testarea se face cu browser-ul react și cu postman, metodele GET, PUT, POST, DELETE (util pentru a șterge lucruri precum cererile din sistem)
 
 http://localhost:3000/api/students   -> pentru a accesa studenții
 
 http://localhost:3000/api/professors -> pentru a accesa profesorii
+
+http://localhost:3000/api/cereri  -> pentru a accesa cererile
+
+Apoi se poate utiliza oricare metodă și orice id (sau o afișare a tuturor intrărilor)
+
+## Ce am realizat până acum?
+
+CRUD complet pe Student, Profesor, Cerere (în routes/)
+
+Reguli: un student nu poate trimite multiple cereri la același profesor, cererile se invalidează când una e aprobată, profesorul are maxStudents etc.
+
+Front-end minimal (React) cu ”fake login” (student sau profesor + ID) și interfețe separate
+
+Sistem de upload fișiere la cererile ”approved” (folosind multer) și download de profesor
+
+
+
+
+## PENTRU MARIUS - DE FĂCUT(până la finalul documentului):
+
+`CEA MAI IMPORTANTĂ FUNCȚIONALITATE DE IMPLEMENTAT`
+-Respingere sau aprobare fișier de către profesor(actualmente îl primește și îl poate descărca, dar atât)
+-Retrimitere document de către student dacă a fost respins de profesor
+-Profesorul poate trimite un fișier ca răspuns (cel semnat de el) dacă aprobă, caz în care interacțiunea dintre cei doi se încheie
+
+
+## Cum funcționează fișierele și ce trebuie să faci
+
+-caută multer pe internet pentru o idee despre cum funcționează stocarea de fișiere
+
+- **Stocare**: Fișierele încărcate de student se salvează în `server/uploads/`, iar calea e memorată în `cerere.filePath`.
+- **Descărcare**: Serverul expune `/uploads` ca director static. Astfel, dacă `cerere.filePath = "uploads/xyz"`, fișierul e accesibil la `http://localhost:3000/uploads/xyz`.
+- **Profesor** are buton "Descarcă fișier student" în interfața React, care deschide fișierul într-o fereastră nouă sau îl descarcă.
+-**Studentul** poate retrimite fișierul de câte ori vrea, iar profesorul va primi altul de fiecare dată.
+
+ De aici implementezi tu: dacă profesorul acceptă și trimite fișierul semnat înapoi, se încheie tot, studentul primește o confirmare și nu mai are acces la cereri sau la fișiere, la fel și profesorul va vedea studentul din lista sa de cereri diferit (un mod de a vedea că e completă interacțiunea cu el, e la interpretarea ta)
+
+Cerința -> "-	Ca răspuns la cerere, profesorul poate încărca un fișier sau respinge cererea, caz în care studentul va trebui să încarce o nouă cerere"
+
+A) Deci, noi mai trebuie și să simulăm că profesorul poate, la rândul lui, să facă un upload (ex. /api/cereri/:id/upload-profesor   -> adică trebuie adăugată o nouă interacțiune în cerereRouter), putem să stocăm fișierul într-un nou câmp cerere.profFilePath.
+
+B) Studentul poate avea un buton “Descarcă fișier de la profesor” dacă cerere.profFilePath există, implementat în genul ăsta:
+
+{cerere.profFilePath && (
+  <a href={`http://localhost:3000/${cerere.profFilePath}`}
+     target="_blank" rel="noopener noreferrer">
+    Descarcă fișier primit de la profesor
+  </a>
+)}
+
+Practic de aici profesorul și studentul nu mai pot comunica deoarece s-a trimis documentul final de la profesor.
+
+
+
+## ALTE FUNCȚIONALITĂȚI IMPORTANTE DE ADĂUGAT
+
+-În loc să scrie numărul studentului sau profesorului, să îi scrie numele - preluat din baza de date - (odată ce e logat)
+-`IMPORTANT CĂ ȘTIU CĂ LA ASTA EȘTI BUN`: îmbunătățiri majore UI cu CSS(actualmente nu avem nimic), și îmbunătățiri pentru interacțiunea utilizatorului - ex: mesaje ce nu sunt alert-uri(cum ar fi atunci când profesorul introduce justificarea), informații adiționale pentru profesori/studenți cum ar fi profesorul să vadă câți studenți a acceptat și câți mai poate accepta, studentul să vadă profesorii care deja au nr. max de studenți, etc.
+-`DIFICIL`: Sesiuni(un profesor poate să aibă mai multe sesiuni de studenți)
+-`OPȚIONAL`: Sistem adevărat de login, cu parole și conturi reținute
+
+Succes, vei avea nevoie! Eu mi-am rupt capul aici, și chiar și masa, la cât am lovit-o cu pumnul. Sper ca tu să ai o experiență mai pozitivă.
