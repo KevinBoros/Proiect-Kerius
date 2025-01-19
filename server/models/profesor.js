@@ -35,11 +35,14 @@ const Profesor = sequelize.define('Profesor', {
   // Limita de studenti aprobati
   maxStudents: {
     type: DataTypes.INTEGER,
-    defaultValue: 5,  // numar aleatoriu, poate fi modificat
-    validate: {
-      min: 1
-    }
+    allowNull: false,
+    defaultValue: 0,
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
   }
+  
 }, {
   timestamps: false
 });

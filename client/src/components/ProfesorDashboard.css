@@ -1,0 +1,99 @@
+.profesor-dashboard-container {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 20px;
+    color: white;
+    text-align: center;
+    font-family: "Roboto", sans-serif;
+  }
+  
+  .profesor-error-message {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+  }
+  
+  .profesor-success-message {
+    color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+  }
+  
+  .profesor-no-requests {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+  }
+  
+  .profesor-cereri-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+  }
+  
+  .profesor-cerere-card {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  }
+  
+  .profesor-buttons-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  
+  .profesor-approve-button {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .profesor-reject-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .profesor-file-container {
+    margin-top: 10px;
+  }
+  
+  .profesor-file-input {
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .profesor-upload-button {
+    background: #0ca84d;
+    color: rgb(5, 43, 19);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .profesor-upload-button:hover{
+    background: rgb(5, 77, 31);
+  }
+  
+  .link{
+    color: #058680;
+    font-weight: bolder;
+  }
+
+  .link:hover{
+    color: #054946;
+  }

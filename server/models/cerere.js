@@ -1,6 +1,4 @@
-
-//cererile sunt modul prin care studentii si profesorii comunica
-//odata trimise, ele pot fi actualizate in functie de reactia profesorului
+// server/models/cerere.js
 const sequelize = require('../config/sequelize');
 const { DataTypes } = require('sequelize');
 
@@ -19,7 +17,7 @@ const Cerere = sequelize.define('Cerere', {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM('pending', 'approved', 'rejected', 'resubmit'),
+    type: DataTypes.ENUM('pending', 'approved', 'rejected', 'resubmit', 'finalizat'),
     defaultValue: 'pending',
   },
   justificareRespins: {
@@ -33,13 +31,18 @@ const Cerere = sequelize.define('Cerere', {
   mimeType: {
     type: DataTypes.STRING,
     allowNull: true
-  },  
+  },
   filePath: {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // ADĂUGĂ câmpul pentru fișierul încărcat de profesor:
+  profFilePath: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
-  timestamps: true, // Adauga `createdAt` și `updatedAt`
+  timestamps: true, // Adaugă createdAt și updatedAt
 });
 
 module.exports = Cerere;

@@ -16,7 +16,7 @@ Sistemul permite:
 - În `client/`, avem un proiect **React** (SPA), instalat cu Yarn.
 
 
-
+npm 
 
 ## Cum rulez aplicația?
 
@@ -76,7 +76,7 @@ Sistem de upload fișiere la cererile ”approved” (folosind multer) și downl
 - **Stocare**: Fișierele încărcate de student se salvează în `server/uploads/`, iar calea e memorată în `cerere.filePath`.
 - **Descărcare**: Serverul expune `/uploads` ca director static. Astfel, dacă `cerere.filePath = "uploads/xyz"`, fișierul e accesibil la `http://localhost:3000/uploads/xyz`.
 - **Profesor** are buton "Descarcă fișier student" în interfața React, care deschide fișierul într-o fereastră nouă sau îl descarcă.
--**Studentul** poate retrimite fișierul de câte ori vrea, iar profesorul va primi altul de fiecare dată.
+- **Studentul** poate retrimite fișierul de câte ori vrea, iar profesorul va primi altul de fiecare dată.
 
  De aici implementezi tu: dacă profesorul acceptă și trimite fișierul semnat înapoi, se încheie tot, studentul primește o confirmare și nu mai are acces la cereri sau la fișiere, la fel și profesorul va vedea studentul din lista sa de cereri diferit (un mod de a vedea că e completă interacțiunea cu el, e la interpretarea ta)
 
@@ -105,3 +105,185 @@ Practic de aici profesorul și studentul nu mai pot comunica deoarece s-a trimis
 -`OPȚIONAL`: Sistem adevărat de login, cu parole și conturi reținute
 
 Succes, vei avea nevoie! Eu mi-am rupt capul aici, și chiar și masa, la cât am lovit-o cu pumnul. Sper ca tu să ai o experiență mai pozitivă.
+
+
+# UPDATE (18.01.2025)
+Am instalat React 18 (pt ulima versiune 19, nu merge dom router, deci nu putem sa folosim react 19)
+am sters pakcage-lock.json si node_modules si am schimbat dependencies din package.json (am eliminat ^ din react:"^18.0.0" si la fel pt react-dom si dom router)
+ca sa nu si dea update automat la react sau dom
+am mutat pe portul 3001 in index.js ca sa nu te mai intrebe de fiecare data cand rulezi yarn daca vrei sa schimbi portul, pt ca 3000 e alocat default pt react
+
+in folderul server instaleaza:
+npm install bcryptjs
+npm install jsonwebtoken
+npm install cors
+
+in folderul client instaleaza:
+npm install react-router-dom
+// daca nu merge:
+// pt react18 instaleaza dom6 : npm install react-router-dom@6
+// pt react 19 : npm install react-router-dom@6 --legacy-peer-deps (ignora compatibilitatile de versiuni)
+
+# daca vrei sa o iei de la zero cu baza de date si fisierele de upload:
+node .\clearAlldb.js 
+
+npx nodemod (in folderul server) - restart server backend
+yarn start (in folderul client) - restart frontend
+
+## BACKEND
+am adugat folderul middleware in server, unde se afla un js care face verificarea tokenului primit
+am adaugat authRouter care se ocupa de auntentificare, crearea tokenului (valid pt 1h) si autentificarea pt utilizatori (student sau profesor)
+in index.js am adaugat modificarile facute (cors, token verify etc)
+
+## rulam la fel serverul apoi intram pe postman ca sa verifcam functionalitatile:
+1. register
+## post
+POST http://localhost:3000/api/auth/register
+Sectiunea BODY - optiunea raw : 
+{
+  "email": "studentnou@example.com",
+  "password": "parola123",
+  "role": "student"
+}
+
+## raspuns
+mesaj asteptat : {
+  "message": "Utilizator înregistrat cu succes.",
+  "user": {
+    "id": ...,
+    "email": "studentnou@example.com"
+  }
+}
+sau : {
+  "error": "Email deja folosit."
+}
+
+2. login
+## post
+POST http://localhost:3000/api/auth/login
+Sectiunea BODY - optiunea raw  : 
+{
+  "email": "studentnou@example.com",
+  "password": "parola123",
+  "role": "student"
+}
+sau 
+{
+  "email": "profesornou@example.com",
+  "password": "parola123",
+  "role": "profesor"
+}
+
+## raspuns
+{
+  "message": "Autentificare reușită.",
+  "token": "eyJhbGc..."
+}
+sau
+{
+  "error": "Autentificare eșuată. Parolă greșită."
+}
+
+# copiaza unul dintre token uri pt etapele urmatoare pt a testa rutele protejate (zonele de admin)
+
+3. lista studenti
+# GET
+GET http://localhost:3000/api/students
+Sectiunea AUTHORIZATION - optiunea bearer token
+in campul token introduci un token valid optinut prin logarea reusita
+
+## raspuns
+lista de studenti in format json
+
+4. lista profesori (la fel ca la studenti)
+
+5. cereri
+5.1. creare cerere
+# POST
+POST http://localhost:3000/api/cereri
+Sectiunea AUTHORIZATION - optiunea bearer token
+in campul token introduci un token valid optinut prin logarea reusita
+
+Sectiunea BODY - optiunea raw: 
+{
+  "studentId": 1,
+  "profesorId": 1
+}
+
+# raspuns
+{
+  "id": 1,
+  "studentId": 1,
+  "profesorId": 1,
+  "status": "pending"
+}
+
+
+5.2. aprobare sau respingere cerere
+# PUT
+PUT http://localhost:3000/api/cereri/1
+Sectiunea AUTHORIZATION - optiunea bearer token
+in campul token introduci un token valid optinut prin logarea reusita
+
+Sectiunea BODY - optiunea raw: 
+{
+  "status": "approved"
+}
+
+sau
+{
+  "status": "rejected",
+  "justificareRespins": "Motivul respingerii..."
+}
+
+
+
+# raspuns
+{
+  "id": 1,
+  "studentId": 1,
+  "profesorId": 1,
+  "status": "approved"
+}
+sau
+{
+  "id": 1,
+  "studentId": 1,
+  "profesorId": 1,
+  "status": "rejected",
+  "justificareRespins": "Motivul respingerii..."
+}
+
+6. Validare fisier
+# POST
+POST http://localhost:3000/api/cereri/1/upload
+Sectiunea AUTHORIZATION - optiunea bearer token
+in campul token introduci un token valid optinut prin logarea reusita
+
+Sectiunea BODY - optiunea form-data:
+Key: file
+Type: File
+Value: alege un fișier .pdf sau .docx
+
+# raspuns
+{
+  "message": "Fișier încărcat cu succes",
+  "cerere": {
+    "id": 1,
+    "studentId": 1,
+    "profesorId": 1,
+    "status": "approved",
+    "filePath": "uploads/<nume_fisier>"
+  }
+}
+
+
+## FRONTEND
+
+- am creat folderul components in client -> src pt a gestiona dashboardul pt fiecare tip de utilizator (student/ profesor)
+- StudentDashboard.js si ProfesorDashboard.js respectiv care reprezinta pagina afisata dupa logarea reusita in functie de tipul de utilizator
+- css urile pt Dashboardurile de student si profesor
+- css ul pt AuthPage
+- authPage.js pagina de autentificare care uneste cazurile de login si register
+- in app.js am inclus aceste fisiere
+

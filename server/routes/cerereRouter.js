@@ -1,154 +1,168 @@
+// server/routes/cerereRouter.js
 const router = require('express').Router();
-const Cerere = require('../models/cerere');
+const { Student, Profesor, Cerere } = require('../models');
 const { Op } = require('sequelize');
 const multer = require('multer');
 const path = require('path');
-const Profesor = require('../models/profesor'); 
+const verifyToken = require('../middleware/authMiddleware');
 
-//folder local unde se salveaza fisierele
-
+// Configurare multer: destinație și nume fișier
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
-    // folosim data + random + numele original,
-    // sau doar un hash + extensia originală
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    // extragem extensia
-    const ext = path.extname(file.originalname);
-    // ex: "1673690341234-623123.pdf"
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, uniqueSuffix + ext);
   }
 });
 
-const upload = multer({ storage: storage });
-
-
-// POST /api/cereri - Creare cerere
-router.post('/cereri', async (req, res) => {
-  try {
-    const { studentId, profesorId } = req.body;
-
-
-    // Dupa ce verifici professor in DB:
-   const profesor = await Profesor.findByPk(profesorId);
-   if (!profesor) {
-     return res.status(400).json({ error: 'Profesor inexistent' });
-   }
-   const countApproved = await Cerere.count({
-      where: { profesorId, status: 'approved' }
-    });
-    if (countApproved >= profesor.maxStudents) {
-      return res.status(400).json({
-        error: 'Acest profesor nu mai are locuri disponibile.'
-      });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // max 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.pdf', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      return cb(new Error('Tipul fișierului nu este permis (PDF, DOC, DOCX).'));
     }
-
-
-
-    // 1. Verifică dacă studentul e deja "approved" la oricare profesor
-    const cerereAprobata = await Cerere.findOne({
-      where: {
-        studentId,
-        status: 'approved'
-      }
-    });
-    if (cerereAprobata) {
-      return res.status(400).json({
-        error: 'Acest student este deja aprobat la un profesor. Nu mai poate trimite cereri noi.'
-      });
-    }
-
-    // 2. Verifică dacă există deja cerere la acest profesor (cu status != 'invalid' / 'rejected')
-    const cerereExistenta = await Cerere.findOne({
-      where: {
-        studentId,
-        profesorId,
-        status: {
-          [Op.notIn]: ['invalid', 'rejected']
-        }
-      }
-    });
-    if (cerereExistenta) {
-      return res.status(400).json({
-        error: 'Există deja o cerere activă către acest profesor.'
-      });
-    }
-
-    // 3. Dacă a trecut de verificări, creează cererea
-    const cerere = await Cerere.create(req.body);
-    res.status(201).json(cerere);
-    
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to create request', details: err });
+    cb(null, true);
   }
 });
 
+// POST /api/cereri - Creare cerere
+router.post('/cereri', verifyToken, async (req, res) => {
+  try {
+    const { profesorId } = req.body;
+    // user-ul e student, id-ul se află în req.user.id
+    const studentId = req.user.id;
 
-// GET /api/cereri - Vizualizare cereri
-router.get('/cereri', async (req, res) => {
+    const profesor = await Profesor.findByPk(profesorId);
+    if (!profesor) {
+      return res.status(400).json({ error: 'Profesor inexistent' });
+    }
+
+    // 1) Verificăm dacă studentul are deja o cerere aprobată
+    const cerereAprobata = await Cerere.findOne({
+      where: { studentId, status: 'approved' }
+    });
+    if (cerereAprobata) {
+      return res.status(400).json({
+        error: 'Acest student este deja aprobat la un profesor.'
+      });
+    }
+
+    // 2) Verificăm limita de studenți a profesorului
+    const countApproved = await Cerere.count({
+      where: {
+        profesorId,
+        status: {
+          [Op.or]: ['approved', 'finalizat'], // Adăugat statusul "finalizat"
+        },
+      },
+    });
+    if (countApproved >= profesor.maxStudents) {
+      return res.status(400).json({
+        error: 'Profesorul a atins numărul maxim de studenți.',
+      });
+    }
+
+    // 3) Creăm cererea cu status = 'pending'
+    const cerere = await Cerere.create({
+      studentId,
+      profesorId,
+      status: 'pending'
+    });
+    res.status(201).json(cerere);
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: 'Failed to create request' });
+  }
+});
+
+// GET /api/cereri - Vizualizare generală (poate primi query studentId/profesorId)
+router.get('/cereri', verifyToken, async (req, res) => {
   try {
     const { studentId, profesorId } = req.query;
-
-    let where = {};
+    const where = {};
     if (studentId) where.studentId = studentId;
     if (profesorId) where.profesorId = profesorId;
 
-    const cereri = await Cerere.findAll({ where });
+    // Aici includem și modelul Student, pentru a putea afişa numele/prenumele
+    const cereri = await Cerere.findAll({
+      where,
+      include: [
+        {
+          model: Student,
+          attributes: ['firstName', 'lastName'] // câmpurile dorite din Student
+        }
+      ]
+    });
+
     res.json(cereri);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to retrieve requests', details: err });
   }
 });
 
+/**
+ * GET /api/cereri/me - Afișează ultima cerere a studentului curent
+ */
+router.get('/cereri/me', verifyToken, async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    // Poți folosi findOne + order, sau findAll dacă vrei mai multe cereri.
+    const cerere = await Cerere.findOne({
+      where: { studentId },
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: Student,
+          attributes: ['firstName', 'lastName']
+        }
+      ]
+    });
+
+    if (!cerere) {
+      return res.status(404).json({ error: 'Nu există nicio cerere pentru acest student.' });
+    }
+
+    res.json(cerere);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: 'Eroare la preluarea cererii pentru studentul curent.',
+      details: err
+    });
+  }
+});
+
 // PUT /api/cereri/:id - Actualizare status cerere
-router.put('/cereri/:id', async (req, res) => {
+router.put('/cereri/:id', verifyToken, async (req, res) => {
   try {
     const cerere = await Cerere.findByPk(req.params.id);
     if (!cerere) return res.status(404).json({ error: 'Request not found' });
 
-    const { status, justificareRespins, filePath } = req.body;
+    const { status, justificareRespins } = req.body;
 
-    // Daca cererea e aprobata, invalideaza restul cererilor studentului
     if (status === 'approved') {
+      // Verificăm încă o dată limita
       const profesor = await Profesor.findByPk(cerere.profesorId);
-      if (!profesor) {
-        return res.status(400).json({ error: 'Profesor inexistent' });
-      }
-
-      // Câți studenți deja aprobați la acest profesor?
       const countApproved = await Cerere.count({
-        where: {
-          profesorId: profesor.id,
-          status: 'approved'
-        }
+        where: { profesorId: profesor.id, status: 'approved' }
       });
       if (countApproved >= profesor.maxStudents) {
-        // Respinge direct
         return res.status(400).json({
-          error: 'Profesorul a atins deja limita de studenți aprobați.'
+          error: 'Profesorul a atins limita de studenți aprobați.'
         });
       }
       cerere.status = 'approved';
       await cerere.save();
-
-      // Apoi “invalidezi” restul cererilor studentului care sunt pending
-      await Cerere.update(
-        { status: 'invalid' },
-        {
-          where: {
-            studentId: cerere.studentId,
-            id: { [Op.ne]: cerere.id },     // toate cererile altfel decat cea curenta
-            status: { [Op.in]: ['pending', 'resubmit'] }
-          }
-        }
-      );
-
       return res.json(cerere);
     }
 
-    // Daca status e "rejected"
     if (status === 'rejected') {
       cerere.status = 'rejected';
       if (justificareRespins) cerere.justificareRespins = justificareRespins;
@@ -156,22 +170,18 @@ router.put('/cereri/:id', async (req, res) => {
       return res.json(cerere);
     }
 
-    // altfel, update normal
-    if (status) cerere.status = status;
-    if (justificareRespins) cerere.justificareRespins = justificareRespins;
-    if (filePath) cerere.filePath = filePath;
-
+    // alt status
+    cerere.status = status;
     await cerere.save();
     res.json(cerere);
-
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update request', details: err });
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update request' });
   }
 });
 
-
-// DELETE /api/cereri/:id - Stergere cerere
-router.delete('/cereri/:id', async (req, res) => {
+// DELETE /api/cereri/:id - Ștergere cerere
+router.delete('/cereri/:id', verifyToken, async (req, res) => {
   try {
     const cerere = await Cerere.findByPk(req.params.id);
     if (!cerere) return res.status(404).json({ error: 'Request not found' });
@@ -183,57 +193,69 @@ router.delete('/cereri/:id', async (req, res) => {
   }
 });
 
-
-//PUT /api/cereri/invalidate/:studentId
-router.put('/cereri/invalidate/:studentId', async (req, res) => {
-    try {
-      const { studentId } = req.params;
-  
-      // Invalidam cererile care sunt `pending`
-      const updated = await Cerere.update(
-        { status: 'invalid' },
-        {
-          where: {
-            studentId,
-            status: { [Op.or]: ['pending', 'respinsa'] } // Include pending si respins
-          }
+// PUT /api/cereri/invalidate/:studentId - Invalidate cereri unui student
+router.put('/cereri/invalidate/:studentId', verifyToken, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const updated = await Cerere.update(
+      { status: 'invalid' },
+      {
+        where: {
+          studentId,
+          status: { [Op.or]: ['pending', 'respinsa'] }
         }
-      );
-  
-      res.json({ message: 'Cereri invalidate', count: updated[0] });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to invalidate requests', details: err });
-    }
-  });
-  
+      }
+    );
+    res.json({ message: 'Cereri invalidate', count: updated[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to invalidate requests', details: err });
+  }
+});
 
-  // POST /api/cereri/:id/upload
-router.post('/cereri/:id/upload', upload.single('file'), async (req, res) => {
+// POST /api/cereri/:id/upload - Upload fișier student
+router.post('/cereri/:id/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     const cerereId = req.params.id;
     const cerere = await Cerere.findByPk(cerereId);
     if (!cerere) return res.status(404).json({ error: 'Cererea nu există' });
-
-    // Verificare optionala: veste cererea 'approved'?
     if (cerere.status !== 'approved') {
       return res.status(400).json({ error: 'Cererea nu este în stadiu "approved".' });
     }
-
-    // Se salveaza calea fisierului in DB
-    // req.file.path e calea generata in uploads/
-    console.log("file upload =>", req.file);
-    cerere.filePath = req.file.path; 
+    // Salvează detalii fișier
+    cerere.filePath = req.file.path;
     cerere.originalFileName = req.file.originalname;
     cerere.mimeType = req.file.mimetype;
-    // se poate marca status = "resubmit" ca sa fie vazut de profesor, daca vrem, de ex. "in_asteptare"
     await cerere.save();
 
     res.json({ message: 'Fișier încărcat cu succes', cerere });
   } catch (err) {
-    res.status(500).json({ error: 'Eroare la încărcarea fișierului', details: err });
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'Fișierul depășește dimensiunea maximă admisă (10MB).' });
+    } else {
+      res.status(400).json({ error: err.message });
+    }
   }
 });
-  
 
+// POST /api/cereri/:id/upload-profesor - Upload fișier profesor
+router.post('/cereri/:id/upload-profesor', verifyToken, upload.single('file'), async (req, res) => {
+  try {
+    const cerereId = req.params.id;
+    const cerere = await Cerere.findByPk(cerereId);
+    if (!cerere) return res.status(404).json({ error: 'Cererea nu există' });
+    if (cerere.status !== 'approved') {
+      return res.status(400).json({ error: 'Cererea nu este în stadiul "approved".' });
+    }
+
+    cerere.profFilePath = req.file.path; 
+    cerere.status = 'finalizat'; // marcăm cererea ca "finalizat"
+    await cerere.save();
+
+    res.json({ message: 'Fișier încărcat cu succes', cerere });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message });
+  }
+});
 
 module.exports = router;

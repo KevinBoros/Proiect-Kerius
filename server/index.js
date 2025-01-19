@@ -1,70 +1,51 @@
 const express = require('express');
+const cors = require('cors'); // <== import cors
 const sequelize = require('./config/sequelize'); // conexiunea
+const bcrypt = require('bcryptjs'); // import pentru bcryptjs
 
-const Student = require('./models/student');     // modele
+const Student = require('./models/student'); // modele
 const Profesor = require('./models/profesor');
 
-//routere
-const studentRouter = require('./routes/studentRouter'); 
+// routere
+const studentRouter = require('./routes/studentRouter');
 const profesorRouter = require('./routes/profesorRouter');
 const cerereRouter = require('./routes/cerereRouter');
-
+const authRouter = require('./routes/authRouter'); // Router pentru autentificare
+const verifyToken = require('./middleware/authMiddleware'); // Middleware pentru autentificare
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
-// Middlewares
-app.use(express.json());  // pentru a putea primi JSON in body
+/* 
+   1) Adaugă și inițializează cors înainte de rutele tale:
+*/
+app.use(cors());
 
-// Rutele
-app.use('/api', studentRouter);
-app.use('/api', profesorRouter);
-app.use(express.urlencoded({extended: true}))
-app.use('/api', cerereRouter);
-// Servim fisiere din /uploads, public la /uploads
+// 2) Middleware pentru a parsa JSON în body
+app.use(express.json());
+
+// 3) Rute NEprotejate (register, login)
+app.use('/api/auth', authRouter);
+
+// 4) Rute protejate cu token (student/profesor/cereri)
+app.use('/api', verifyToken, studentRouter);
+app.use('/api', verifyToken, profesorRouter);
+app.use('/api', verifyToken, cerereRouter);
+
+// 5) Pentru a parsa form-data cu urlencoded
+app.use(express.urlencoded({ extended: true }));
+
+// 6) Servim fișierele din /uploads (dacă este cazul)
 app.use('/uploads', express.static('uploads'));
 
-// Sincronizare DB
-sequelize.sync({ alter: true }) //asta va crea sau modifica tabelele pentru modelele definite
+// Sincronizare DB fără introducere automată de date
+sequelize.sync({ alter: true })
   .then(async () => {
-    console.log('All entities have been synchronized');
-
-    // (EXEMPLU) Populare DB cu date pentru TESTARE
-    const count = await Student.count();
-    if (count === 0) {
-      await Student.bulkCreate([
-        { firstName: 'Ion',   lastName: 'Popescu', email: 'ion@example.com' },
-        { firstName: 'Maria', lastName: 'Ionescu', email: 'maria@example.com' },
-        { firstName: 'Kevin', lastName: 'Boros', email: 'kevinboros22@gmail.com' },
-        { firstName: 'Marius', lastName: 'Bica', email: 'completeazaMailulTauAiciMarius@gmail.com' },
-        { firstName: 'Rămurel', lastName: 'Pastramă', email: 'ramurel@example.com' },
-        { firstName: 'Alexandru', lastName: 'Averescu', email: 'alexandru@example.com' },
-        { firstName: 'Andreea', lastName: 'Esca', email: 'andreea@example.com' },
-        { firstName: 'Călin', lastName: 'Georgescu', email: 'calin@example.com' },
-        { firstName: 'Elena', lastName: 'Lasconi', email: 'elena@example.com' },
-        { firstName: 'Decebal', lastName: 'Diurpaneus', email: 'decebal@example.com' }
-      ]);
-      console.log('Sample students created.');
-    } else {
-      console.log('Students already exist in the DB.');
-    }
-
-    const countProfs = await Profesor.count();
-    if (countProfs === 0) {
-      await Profesor.bulkCreate([
-        { firstName: 'Marian', lastName: 'Marin', email: 'marian@xyz.com', maxStudents: 4 },
-        { firstName: 'Camelia', lastName: 'Bratianu', email: 'camelia@xyz.com', maxStudents: 3 },
-        { firstName: 'Nicolae', lastName: 'Iorga', email: 'nicolae@xyz.com', maxStudents: 5 }
-
-      ]);
-      console.log('Sample professors created.');
-    }
-
+    console.log('All entities have been synchronized.');
     // Pornim serverul
     app.listen(port, () => {
       console.log(`Server listening on port ${port}`);
     });
-
   })
   .catch(err => {
     console.error('Eroare la sincronizare:', err);

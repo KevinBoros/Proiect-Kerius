@@ -6,7 +6,7 @@ const sequelize = require('../config/sequelize'); // importam conexiunea
 const { DataTypes } = require('sequelize');
 
 const Student = sequelize.define('Student', {
-  id: {
+  id: { 
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
@@ -30,7 +30,12 @@ const Student = sequelize.define('Student', {
     validate: {
       isEmail: true
     }
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
   }
+  
 }, {
   timestamps: false // nu vrem createdAt, updatedAt
 });
