@@ -1,3 +1,15 @@
+#EN
+Project Title:
+Web Application for Dissertation Registration
+
+Functionalities:
+1. A login page with real accounts and encrypted passwords.
+2. Different account types for students and professors.
+3. Interactions between the two types of users (primarily request and acceptance/rejection of requests + sending signed documents and their rejection/acceptance).
+4. A different dashboard for each student and professor based on sent/received requests and the student's status (accepted, pending, or rejected).
+5. A database that stores emails, lists of students registered with specific professors, and the posted requests.
+
+#RO
 Titlu proiect:
 Aplicatie web pentru inregistrarea la disertatie
 
